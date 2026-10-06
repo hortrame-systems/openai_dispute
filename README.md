@@ -16,7 +16,7 @@ The link is pinned to the original upload commit. The archive has not been chang
 2735eda6746b271a09526dbda245c706c7cdb3f9df6bc6cb8e9a6d8ad287e67a
 ```
 
-[Checksum file](ZIP_SHA256SUMS.txt) | [Dated support history](SUPPORT_HISTORY.md) | [Provider records needed](PROVIDER_RECORDS.md) | [Related public tracker](https://github.com/openai/codex/issues/41220)
+[Zenodo DOI](https://doi.org/10.5281/zenodo.23192953) | [GitHub release](https://github.com/hortrame-systems/openai_dispute/releases/tag/v1.0) | [Checksum file](ZIP_SHA256SUMS.txt) | [Dated support history](SUPPORT_HISTORY.md) | [Provider records needed](PROVIDER_RECORDS.md) | [Related public tracker](https://github.com/openai/codex/issues/41220)
 
 The archive contains the evidence tables, analysis, correction history and executable reproduction tools. The documents displayed here are a reading aid; the numbered archive remains the source for the released findings and their qualifications.
 
