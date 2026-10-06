@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this public forensic package, please cite the Zenodo record."
+title: "Codex credit depletion: public forensic review package"
+type: dataset
+version: "1.0"
+date-released: 2026-10-06
+doi: 10.5281/zenodo.23192953
+url: "https://github.com/hortrame-systems/openai_dispute"
+repository-code: "https://github.com/hortrame-systems/openai_dispute"
+authors:
+  - family-names: "Bolduc"
+    given-names: "Guillaume"
