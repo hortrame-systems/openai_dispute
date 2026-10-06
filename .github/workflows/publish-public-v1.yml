@@ -1,0 +1,100 @@
+name: Publish verified public evidence v1.0
+
+'on':
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-public-v1.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-evidence-v1.0
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'hortrame-systems/openai_dispute' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_REPO: hortrame-systems/openai_dispute
+      EVIDENCE_COMMIT: 9de0c410cba03bbec7dfed9a8f28f195b1a25751
+      ARCHIVE: OpenAI_Codex_Forensic_Public_Review_Package_20261006_v1.0.zip
+      EXPECTED_SHA256: 2735eda6746b271a09526dbda245c706c7cdb3f9df6bc6cb8e9a6d8ad287e67a
+    steps:
+      - name: Retrieve and verify the unchanged public archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q verified
+          git -C verified remote add origin "https://github.com/${GH_REPO}.git"
+          git -C verified fetch --depth=1 origin "$EVIDENCE_COMMIT"
+          git -C verified checkout --detach FETCH_HEAD
+          test "$(git -C verified rev-parse HEAD)" = "$EVIDENCE_COMMIT"
+          cd verified
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$ARCHIVE" | sha256sum --check -
+          sha256sum --check ZIP_SHA256SUMS.txt
+          unzip -tq "$ARCHIVE"
+
+      - name: Create, read back, and publish v1.0 without replacing existing releases
+        shell: bash
+        working-directory: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --output "$RUNNER_TEMP/existing-release.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${GH_REPO}/releases/tags/v1.0")"
+          case "$status" in
+            404) ;;
+            200) echo '::error::A v1.0 release already exists. Nothing will be overwritten; inspect it before taking further action.'; exit 1 ;;
+            *) echo "::error::Release preflight failed with HTTP $status; no publication attempted."; exit 1 ;;
+          esac
+
+          existing_tag="$(gh api "repos/${GH_REPO}/git/matching-refs/tags/v1.0" --jq '.[] | select(.ref == "refs/tags/v1.0") | .object.sha')"
+          if [[ -n "$existing_tag" ]]; then
+            resolved_commit="$(gh api "repos/${GH_REPO}/commits/v1.0" --jq '.sha')"
+            test "$resolved_commit" = "$EVIDENCE_COMMIT" || { echo '::error::Existing tag points elsewhere; refusing to move it.'; exit 1; }
+          fi
+
+          cat > "$RUNNER_TEMP/public-release-notes.md" <<'NOTES'
+          Public forensic review package v1.0, first published 6 October 2026.
+
+          Includes minimized client evidence, executable calculations, claim and correction records, alternative explanations, a provider-record schedule, and dated support correspondence.
+
+          The findings distinguish client-side observations from unresolved historical authorization, attribution and billing. They do not establish fraud, a causal defect or a specific restoration entitlement. Confidential originals and the private alias map are excluded; the archive documents those access boundaries.
+
+          The evidence archive is unchanged from the original public upload. This release is pinned to documentation/evidence commit `9de0c410cba03bbec7dfed9a8f28f195b1a25751`.
+
+          **Evidence asset:** `OpenAI_Codex_Forensic_Public_Review_Package_20261006_v1.0.zip`
+
+          **SHA-256:** `2735eda6746b271a09526dbda245c706c7cdb3f9df6bc6cb8e9a6d8ad287e67a`
+
+          Read the [repository README](https://github.com/hortrame-systems/openai_dispute/tree/9de0c410cba03bbec7dfed9a8f28f195b1a25751) and the archive's reproduction instructions before running the included tools. Use a virtual environment outside the evidence directory.
+
+          GitHub-generated source archives are not the evidence ZIP and have different hashes. No new license is granted by these release notes; existing rights and notices remain unchanged.
+          NOTES
+
+          gh release create v1.0 "$ARCHIVE" ZIP_SHA256SUMS.txt \
+            --repo "$GH_REPO" --draft --target "$EVIDENCE_COMMIT" \
+            --title 'Codex credit depletion: public forensic review package v1.0' \
+            --notes-file "$RUNNER_TEMP/public-release-notes.md"
+
+          mkdir -p "$RUNNER_TEMP/public-release-readback"
+          gh release download v1.0 --repo "$GH_REPO" \
+            --dir "$RUNNER_TEMP/public-release-readback" \
+            --pattern "$ARCHIVE" --pattern ZIP_SHA256SUMS.txt
+          (
+            cd "$RUNNER_TEMP/public-release-readback"
+            printf '%s  %s\n' "$EXPECTED_SHA256" "$ARCHIVE" | sha256sum --check -
+            sha256sum --check ZIP_SHA256SUMS.txt
+          )
+          gh release edit v1.0 --repo "$GH_REPO" --draft=false --latest
+          gh release view v1.0 --repo "$GH_REPO" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"
+          printf '\nEvidence asset uploaded and downloaded back with matching SHA-256.\n' >> "$GITHUB_STEP_SUMMARY"
